@@ -1,21 +1,43 @@
-# first need to do rarefaction
-# Rarefying - normalizes read depth across all samples. 
-# Allows for an equal comparison across different sample types, at the risk of excluding rarer taxa
-# A "good" rarefaction depth should minimize sample loss while maximizing OTU richness.
+#libraries necessary
+library(vegan)
+library(ggplot2)
+library(EcolUtils)
+library(biomformat)
+library(stringr)
+library(dplyr)
+library(gridExtra)
+library(tidyverse)
+
+
+#import data
+
+setwd("C:/Users/Zach/Documents/Microbiome Family Project")
+
+taxonomy <-read.delim("taxonomy.txt")
+
+Microbiome_mapping <- read.delim("Microbiome_mapping.txt")
+
+#OTU-table (needs to have columns in number order)
+OTU_table <- read.delim("OTU_table.xlsx")
+
+#did not filter data because it was said to already be clean
+
+#rarefaction
 
 # get quartile ranges for rarefaction
+#OTU-table was put in order by columns in excel, then imported to R
 transOTU <- rowSums(t(OTU_table[,2:96])) 
+
 Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.10)
 Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
 
-# we can use these numbers to set a range (e.g., Q10) to keep samples at that depth (e.g., 90th percentile)
+# plot 
 barplot(sort(transOTU), ylim = c(0, max(transOTU)), 
         xlim = c(0, NROW(transOTU)), col = "Blue", ylab = "Read Depth", xlab = "Sample") 
 abline(h = c(Q10, Q15), col = c("red", "pink"))
 plot.new()
 
-# did we sequence each sample adequately? - ideally, you see the lines plateau meaning you sampled the community!
-# if not, you may need to sequencer to greater depth for each sample (if lines are linear)
+
 rarecurve(t(OTU_table[,2:96]), step = 100, cex = 0.5)
 abline(v = c(Q10, Q15), col = c("red", "pink"))
 
@@ -31,8 +53,6 @@ rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q10 - (Q10 * 0.1), co
 ############### Alpha diversity ###############
 ############### ############### ############### 
 
-library(vegan)
-library(tidyverse)
 # outside of this, we can look at the richness of each sample, or how many taxa are in each sample
 richness <- as.data.frame(specnumber(rared_OTU))
 colnames(richness) <- c("speciesrich")
@@ -51,7 +71,7 @@ colnames(shannon) <- c("alpha_shannon")
 nerged_alpha <- merge(nerged_rich, shannon, by = 0)
 
 #filter data frame to only have individuals being compared.
-#In this case, fam1 members
+#In this case, fam1 members 
 nerged_alpha <- filter(nerged_alpha, Family == 'Fam1')
 
 #Plotting alpha diversity:
@@ -93,7 +113,6 @@ p2
 ############### ############### ############### 
 ###############  Beta diversity ###############
 ############### ############### ############### 
-help(metaMDS)
 NMDS1 <- metaMDS(rared_OTU, distance = "bray", k = 2, trymax = 500)
 
 # Extract the two axes of the NMDS to plot the x and y coordinates
@@ -121,15 +140,7 @@ ggplot(data = nmds_plus_Microbiome_mapping) +
 filtersamples <- rownames(rared_OTU)
 filtermapping <- subset(Microbiome_mapping, rownames(Microbiome_mapping) %in% filtersamples)
 
-# Now test for differences among beta-diversity
-# one thing we can do is a permanova (permutational ANOVA) 
-# permutated analysis of variance, or a type of statistical test, useful for large multivariate analyses.
-#Note: this may not be the proper statistical test for your hypothesis, but is a good place to start for microbiome data.
-
-# let's check out the function in R that does this - you can brush up on the stats in the bottom right
-?adonis
-
-# try some different factors
+#factors
 adonis(data = filtermapping, formula = rared_OTU ~ Family 
        / Individual + Day + Day:Family,
        permutations = 999, method = "bray")
@@ -144,30 +155,8 @@ adonis(data = filtermapping, formula = rared_OTU ~ Family
 # To replot: 
 # Change the R2 and p-value numbers to match!
 ggplot(data = nmds_plus_Microbiome_mapping) +
-  aes(x = MDS1, y = MDS2, color = Factor_x, fill = Factor_x) +
+  aes(x = MDS1, y = MDS2, color = Family) +
   geom_point() +
   labs(fill = "Family") +
-  guides(color = FALSE) +
   ggtitle("NMDS of Families on Oral Microbiome") +
-  theme_classic(base_size = 14, base_line_size = .5) +
-  geom_polygon(alpha = 0.5)
-
-###############################################################################
-
-install.packages('vegan')
-library(vegan)
-
-setwd("/Users/Zach/Desktop/Family Project")
-
-Microbiome_mapping <- read.delim('Microbiome_mapping.txt')
-head(Microbiome_mapping)
-
-OTU_table <- read.delim('OTU_table.txt')
-head(OTU_table)
-
-#Manova
-OTU_Table.matrix<-as.matrix(OTU_Table[,])
-taxonomy$B<-as.factor(taxonomy$B)
-
-OTU_Table.manova <- manova(OTU_Table.matrix~as.factor(B), data=taxonomy)
-summary(OTU_Table.manova)
+  theme_classic(base_size = 14, base_line_size = .5)
