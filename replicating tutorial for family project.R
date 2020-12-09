@@ -13,12 +13,14 @@ library(tidyverse)
 
 setwd("C:/Users/Zach/Documents/Microbiome Family Project")
 
-taxonomy <-read.delim("taxonomy.txt")
+taxonomy <-read.delim("taxonomy.txt", row.names = 1)
 
-Microbiome_mapping <- read.delim("Microbiome_mapping.txt")
-
+Microbiome_mapping <- read.delim("Microbiome_mapping_14Oct2019.txt")
+Microbiome_mapping$NAME <- interaction( "X", Microbiome_mapping$NAME, sep = "")
+rownames(Microbiome_mapping) <- Microbiome_mapping[,1]
+Microbiome_mapping[,1] <- NULL
 #OTU-table (needs to have columns in number order)
-OTU_table <- read.delim("OTU_table.xlsx")
+OTU_table <- read.delim("OTU_table.txt", row.names = 1)
 
 #did not filter data because it was said to already be clean
 
@@ -26,7 +28,7 @@ OTU_table <- read.delim("OTU_table.xlsx")
 
 # get quartile ranges for rarefaction
 #OTU-table was put in order by columns in excel, then imported to R
-transOTU <- rowSums(t(OTU_table[,2:96])) 
+transOTU <- rowSums(t(OTU_table)) 
 
 Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.10)
 Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
@@ -38,12 +40,12 @@ abline(h = c(Q10, Q15), col = c("red", "pink"))
 plot.new()
 
 
-rarecurve(t(OTU_table[,2:96]), step = 100, cex = 0.5)
+rarecurve(t(OTU_table), step = 100, cex = 0.5)
 abline(v = c(Q10, Q15), col = c("red", "pink"))
 
 # you will need to make a BIG decision here on where to draw the rarefaction cutoff
 # samples to the left of the red or pink lines will be thrown out
-rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table[,2:96]), sample = Q10, n = 100, round.out = T)))
+rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q10, n = 100, round.out = T)))
 
 # This only keeps the samples that meet the rarefaction cutoff.
 rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q10 - (Q10 * 0.1), colSums(rared_OTU) >= 1])
