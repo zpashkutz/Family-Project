@@ -1,0 +1,223 @@
+---
+title: "Family Project Tutorial"
+author: "[authors]"
+date: "TBD"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The primary goal of this addendum is to foster familiarity with basic microbial data analysis and figure generation. The data provided to perform this exercise will be used to demonstrate how to create figures in R similar to those found in the main publication.**[more explicit]** In theory, the concepts found in this guide should be applicable to other microbial datasets with some degree of modification.  In order to complete this tutorial basic knowledge of R and its functions is assumed. In this guide concepts are explained at an introductory level supplemented by sample R code for the provided activity. Statistical explanations found in this guide are by no means comprehensive and it is the responsibility of the reader to ensure that the assumptions of any test performed are appropriate for the given data. 
+
+## R Nomenclature 
+
+Here are some tips to help get through RStudio if it’s your first time using it.
+
+1. To see more information on a *function*, such as the inputs taken or output, use:
+
+`help(function)`
+or
+`?function`
+
+2. Run a line by selecting it and pressing CTRL + ENTER
+3. Regions of code that are followed by a # are comments and are not necessary for the code to run. They are to explain what the code is doing e.g.: 
+```{r}
+df <- mtcars$mpg #assign the mpg column of dataframe mtcars to df
+```
+4. To complement understanding of particular functions, whenever an existing data frame is modified or a new one is created visualize it either by clicking the data frame in the environment or using the View function e.g.: `View(df)`
+
+## Preparing Data for Figures 
+
+ To create figures it is important to ensure that the data is prepared and formatted correctly. Before beginning, specify a desired working directory in R-studio. The metadata, taxonomy, and OTU tables found at **(location we are making them accessible)** are the only files needed for the completion of this tutorial. 
+ 
+### Data Import 
+
+First set the appropriate working directory, i.e. where we want R to look for our files. Change `File Path` to the location where your desired data is being kept. *It's my file path for now but when were done change back to "File Path".*
+```{r}
+setwd("C:/Users/Zach/Documents/Microbiome Family Project")
+```
+
+Import the metadata file, taxonomy, and OTU Table. For the taxonomy and OTU table the first column can be specified as the row names, the metadata file will require some extra steps to be formatted properly. 
+```{r}
+OTU.taxonomyFP <- read.delim("taxonomy.txt", row.names = 1)
+OTU.tableFP <- read.delim("OTU_table.txt", row.names = 1)
+metadataFP <- read.delim("Microbiome_mapping_14Oct2019.txt")
+```
+
+Ensure that all the desired files maintain a consistent formatting style. For the metadata data frame the row names must be formatted for consistency across the other files. The row names must be in the format of “X.##” -  “##” being indicative of the sample number. 
+```{r}
+metadataFP$NAME <- interaction( "X", metadataFP$NAME, sep = "")
+rownames(metadataFP) <- metadataFP[,1]
+metadataFP[,1] <- NULL
+```
+
+### Data Filtering 
+
+It is important to determine if filtering is needed before continuing. An example utilizing the sample data is provided below, however, note that this procedure will not be implemented when creating the final figures at later stages in this tutorial. 
+
+Merge the OTU table with taxonomy into a single data frame. 
+```{r}
+OTU.table.with.taxonomyFP <- as.data.frame(merge(OTU.taxonomyFP, 
+                                               OTU.tableFP, by.x = "row.names", by.y = "row.names"))
+```
+
+Remove unassigned taxa from the merged data frame. For certain diversity metrics filtering may be undesired **citation needed**
+```{r}
+OTU.table.filteredtaxaFP <- OTU.table.with.taxonomyFP[!grepl("Unassigned", 
+                                                        OTU.table.with.taxonomyFP$Kingdom),]
+```
+
+Subset the original OTU table with the filtered taxa to create a filtered OTU table. The filtered OTU table would be used in place of the OTU table in the subsequent steps to generate a rarefied OTU table, given that filtration is desired. 
+```{r}
+FPfilteredtaxa <- OTU.table.filteredtaxaFP$Row.names
+FPfilterOTU <- subset(OTU.tableFP, rownames(OTU.tableFP) %in% FPfilteredtaxa)
+```
+
+### Rarefaction 
+A re-sampling technique for richness estimation, term also used to reference a normalization technique. **go into more depth with the explanation later**
+
+Disclaimer for now: This section may be subject to significant change. 
+
+First retrieve the quartile ranges to rarefy by. Note that the ranges depend on the depth of the samples to be kept. In this example, `Q10` and `Q15` discard the bottom 10th and 15th percentiles respectively. Use the appropriate ranges for your data. 
+
+```{r}
+transOTU <- rowSums(t(OTU.tableFP)) 
+Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.10)
+Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
+```
+
+Visualize these ranges with a barplot of our samples
+```{r}
+barplot(sort(transOTU), ylim = c(0, max(transOTU)), 
+        xlim = c(0, NROW(transOTU)), col = "Blue", ylab = "Read Depth", xlab = "Sample") 
+abline(h = c(Q10, Q15), col = c("red", "pink"))
+```
+
+Generate a rarefaction curve. If the samples begin to plateau, this is a good indication that the samples were sequenced adequately, as it is indicative of more accurately capturing the diversity of a community. 
+```{r, message=FALSE}
+library(vegan)
+```
+```{r}
+rarecurve(t(OTU.tableFP), step = 100, cex = 0.5)
+abline(v = c(Q10, Q15), col = c("red", "pink"))
+```
+  
+The next step involves cutting off the rarer data. Here we want to make as best a decision we can to keep as much data as possible while rarefying the data.
+
+```{r}
+library(EcolUtils)
+```
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+FPrared.OTU <- as.data.frame((rrarefy.perm(t(OTU.tableFP), sample = Q10, n = 100, round.out = T))) #with all samples - rarefies the data
+
+FPrared.OTU <- as.data.frame(FPrared.OTU[rowSums(FPrared.OTU) >= Q10 - (Q10 * 0.1), colSums(FPrared.OTU) >= 1]) #with some samples cut off - removes low depth samples that do not meet the cutoff
+```
+## Alpha Diversity
+
+Alpha diversity refers to microbial diversity found within a sample or in the environment. Each alpha diversity sample contains richness metrics which quantify the OTUs, or unique species present within a sample, and evenness metrics which evaluate how equally each species is represented in a sample. Three commonly used indices: Shannon, Simpson, and Chao may produce different results based on the weights placed on evaluation metrics. Of these indices, Chao is incapable of capturing the scope of microbial diversity and as such the Shannon and Simpson indices will be further explored (Qian et al., 2020).
+
+Shannon and Simpson diversity both calculate alpha diversity through a combination of richness and evenness metrics. However, they differ in regard to the weight assigned to certain species types. The Shannon index ranges from 0-5, with higher values indicative of greater diversity, however greater weight is placed on presence of rarer taxa which would increase this value. In contrast to this the Simpson index ranges from 0-1 but emphasizes common taxa instead (Citation). 
+
+It is best to consider which particular index applies to each dataset and utilize whichever produces the most sound results. In this study the Shannon index was utilized to generate an alpha diversity figure between the four familial cohorts. 
+
+### Generating the α-diversity plot in R 
+
+Create a richness table from the rarefied OTU table. Not that rarefaction may induce changes in diversity metrics, ensure that it is done properly for the dataset of interest. 
+Rename the column to something identifiable, in this case “speciesrich” 
+```{r}
+FPrichness <- as.data.frame(specnumber(FPrared.OTU))
+colnames(FPrichness) <- c("speciesrich")
+FPshannon <- as.data.frame(diversity(FPrared.OTU, index = "shannon"))
+colnames(FPshannon) <- c('alpha_shannon')
+```
+
+## Beta Diversity
+
+Beta diversity shows the difference in diversity between two samples or environments. Two common forms of beta diversity are PCoA and NMDS. With each of these visuals, one can get a sense of how similar samples are by how close in proximity points appear on these graphs. There are several different ways to compose beta diversity plots, which vary in both dimensions used and the distance metric applied. With NMDS in particular, two environments are compared by a certain number of dimensions, usually narrowed down as much as possible for a correlation to be made, but also still retaining the accuracy of the initial data. Each beta diversity plot utilizes a distance metric, for example, Euclidean distance for PCoA. In the tutorial below, a distance metric called Bray-Curtis dissimilarity is used. 
+
+The beta diversity tutorial will use the Family Project rarefied OTU table (produce this in rarefaction section first) and the microbiome mapping data.
+
+Initialize plot with rarefaction OTU table, bray-curtis dissimilarity and 2 dimensions(k):
+```{r, results=FALSE}
+NMDS1 <- metaMDS(FPrared.OTU, distance = "bray", k = 2)
+```
+
+Extract the two axes from the NMDS to plot x and y coordinates
+```{r}
+coordinates <- data.frame(NMDS1$points[,1:2])
+```
+
+
+Plot - MDS1 is the x axis, MDS2 is the y axis. This is not the complete plot however, microbiome mapping must be added next.
+```{r}
+plot(x = coordinates$MDS1, y = coordinates$MDS2)
+```
+
+Merge the NMDS with Microbiome_mapping:
+```{r}
+nmds_plus_metadataFP <- merge(coordinates, metadataFP, by = 0)
+```
+
+Choose a factor to compare the environments. In this case, we compare them by “Family”:
+```{r}
+Factor_x <- as.factor(nmds_plus_metadataFP$Family)
+```
+
+Plot without rarefaction:
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+ggplot(data = nmds_plus_metadataFP) +
+  aes(x = MDS1, y = MDS2, color = Family)+ #Creates and colors legend
+  geom_point(size = 3) + #modifies points
+  labs(col = "Family") + #Renames legend, modifiable. 
+  theme_bw()
+```
+
+
+(Implement the following if the data is goes through rarefaction)
+```{r}
+filtersamples <- rownames(FPrared.OTU)
+filtermapping <- subset(metadataFP, rownames(metadataFP) %in% filtersamples)
+```
+
+Adonis test (explain more):
+```{r, results=FALSE}
+adonis(data = filtermapping, formula = FPrared.OTU ~ Family 
+       / Individual + Day + Day:Family,
+       permutations = 999, method = "bray")
+
+adonis(data = filtermapping, formula = FPrared.OTU ~ Family
+       /Individual/Day,
+       permutations = 999, method = "bray")
+```
+
+
+
+Plot with rarefaction:
+```{r}
+ggplot(data = nmds_plus_metadataFP) +
+  aes(x = MDS1, y = MDS2, color = Family) +
+  geom_point() +
+  labs(fill = "Family") +
+  ggtitle("NMDS of Families on Oral Microbiome") + #adds title
+  theme_classic(base_size = 14, base_line_size = .5)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
