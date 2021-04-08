@@ -1,8 +1,10 @@
 ---
 title: "Family Project Tutorial"
-author: "[authors]"
+author: '[authors]'
 date: "TBD"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -43,14 +45,20 @@ setwd("C:/Users/Zach/Documents/Microbiome Family Project")
 
 Import the metadata file, taxonomy, and OTU Table. For the taxonomy and OTU table the first column can be specified as the row names, the metadata file will require some extra steps to be formatted properly. 
 ```{r}
+library(biomformat)
+
 OTU.taxonomyFP <- read.delim("taxonomy.txt", row.names = 1)
-OTU.tableFP <- read.delim("OTU_table.txt", row.names = 1)
+my_biom <- read_hdf5_biom("61277_otu_table.biom") #import biom
+write_biom(my_biom, "formatted_biom.biom") #format biom
+my_biom <- read_biom("formatted_biom.biom") #read formatted biom
+OTU.tableFP <- as.data.frame(as.matrix(biom_data(my_biom))) #create OTU table from biom
+colnames(OTU.tableFP) <- sub('11959.', 'X', colnames(OTU.tableFP)) #reformat columns
 metadataFP <- read.delim("Microbiome_mapping_14Oct2019.txt")
 ```
 
 Ensure that all the desired files maintain a consistent formatting style. For the metadata data frame the row names must be formatted for consistency across the other files. The row names must be in the format of “X.##” -  “##” being indicative of the sample number. 
 ```{r}
-metadataFP$NAME <- interaction( "X", metadataFP$NAME, sep = "")
+metadataFP$NAME <- interaction("X", metadataFP$NAME, sep = "")
 rownames(metadataFP) <- metadataFP[,1]
 metadataFP[,1] <- NULL
 ```
@@ -87,7 +95,7 @@ First retrieve the quartile ranges to rarefy by. Note that the ranges depend on 
 ```{r}
 transOTU <- rowSums(t(OTU.tableFP)) 
 Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.10)
-Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
+Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15) 
 ```
 
 Visualize these ranges with a barplot of our samples
@@ -106,15 +114,24 @@ rarecurve(t(OTU.tableFP), step = 100, cex = 0.5)
 abline(v = c(Q10, Q15), col = c("red", "pink"))
 ```
   
+As you can see, these two lines serve as potential cutoff points for the samples to the left of each line. It is a good idea to visualize the samples with a rarefaction curve like this and make a decision about where to cut off samples. After taking a closer look, a more optimal position to cut off samples would be at a sample size of ~2000. Here you can see that only the 3 samples with insufficient sample depth are not included in the final rarefied data. Here's what rarefying to ~2000 samples would look like.
+```{r}
+transOTU <- rowSums(t(OTU.tableFP)) 
+Q03 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03) #~2000 samples
+#^ is this quantile notation in the beginning correct
+rarecurve(t(OTU.tableFP), step = 100, cex = 0.5)
+abline(v = c(Q03), col = c("purple"))
+```
+
 The next step involves cutting off the rarer data. Here we want to make as best a decision we can to keep as much data as possible while rarefying the data.
 
 ```{r}
 library(EcolUtils)
 ```
 ```{r, message=FALSE, warning=FALSE, results=FALSE}
-FPrared.OTU <- as.data.frame((rrarefy.perm(t(OTU.tableFP), sample = Q10, n = 100, round.out = T))) #with all samples - rarefies the data
+FPrared.OTU <- as.data.frame((rrarefy.perm(t(OTU.tableFP), sample = Q03, n = 100, round.out = T))) #with all samples - rarefies the data
 
-FPrared.OTU <- as.data.frame(FPrared.OTU[rowSums(FPrared.OTU) >= Q10 - (Q10 * 0.1), colSums(FPrared.OTU) >= 1]) #with some samples cut off - removes low depth samples that do not meet the cutoff
+FPrared.OTU <- as.data.frame(FPrared.OTU[rowSums(FPrared.OTU) >= Q03 - (Q03 * 0.1), colSums(FPrared.OTU) >= 1]) #with some samples cut off - removes low depth samples that do not meet the cutoff
 ```
 ## Alpha Diversity
 
@@ -137,7 +154,11 @@ colnames(FPshannon) <- c('alpha_shannon')
 
 ## Beta Diversity
 
-Beta diversity shows the difference in diversity between two samples or environments. Two common forms of beta diversity are PCoA and NMDS. With each of these visuals, one can get a sense of how similar samples are by how close in proximity points appear on these graphs. There are several different ways to compose beta diversity plots, which vary in both dimensions used and the distance metric applied. With NMDS in particular, two environments are compared by a certain number of dimensions, usually narrowed down as much as possible for a correlation to be made, but also still retaining the accuracy of the initial data. Each beta diversity plot utilizes a distance metric, for example, Euclidean distance for PCoA. In the tutorial below, a distance metric called Bray-Curtis dissimilarity is used. 
+Beta diversity shows the difference in diversity between two samples or environments. Two common forms of beta diversity are PCoA and NMDS. With each of these visuals, one can get a sense of how similar samples are by how close in proximity points appear on these graphs. There are several different ways to compose beta diversity plots, which vary in both dimensions used and the distance metric applied. With NMDS in particular, two environments are compared by a certain number of dimensions, usually narrowed down as much as possible for a correlation to be made, but also still retaining the accuracy of the initial data. Each beta diversity plot utilizes a distance metric, for example, Euclidean distance for PCoA. 
+#Ordination Methods
+
+As mentioned above, there are various beta diversity methods, the most popular of which are PCoA and NMDS. 
+In the tutorial below, a distance metric called Bray-Curtis dissimilarity is used. 
 
 The beta diversity tutorial will use the Family Project rarefied OTU table (produce this in rarefaction section first) and the microbiome mapping data.
 

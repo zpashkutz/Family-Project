@@ -7,7 +7,7 @@ library(stringr)
 library(dplyr)
 library(gridExtra)
 library(tidyverse)
-
+#library(phyloseq)
 
 #import data
 
@@ -16,39 +16,42 @@ setwd("C:/Users/Zach/Documents/Microbiome Family Project")
 taxonomy <-read.delim("taxonomy.txt", row.names = 1)
 
 Microbiome_mapping <- read.delim("Microbiome_mapping_14Oct2019.txt")
-Microbiome_mapping$NAME <- interaction( "X", Microbiome_mapping$NAME, sep = "")
+Microbiome_mapping$NAME <- interaction("X", Microbiome_mapping$NAME, sep = "")
 rownames(Microbiome_mapping) <- Microbiome_mapping[,1]
 Microbiome_mapping[,1] <- NULL
 #OTU-table (needs to have columns in number order)
-OTU_table <- read.delim("OTU_table.txt", row.names = 1)
+#OTU_table <- read.delim("OTU_table.txt", row.names = 1)
+my_biom <- read_hdf5_biom("61277_otu_table.biom") #Change here within quotes.
+write_biom(my_biom, "formatted_biom.biom")
+my_biom <- read_biom("formatted_biom.biom")
+OTU_table <- as.data.frame(as.matrix(biom_data(my_biom)))
+colnames(OTU_table) <- sub('11959.', 'X', colnames(OTU_table))
 
 #did not filter data because it was said to already be clean
 
 #rarefaction
-
 # get quartile ranges for rarefaction
 #OTU-table was put in order by columns in excel, then imported to R
 transOTU <- rowSums(t(OTU_table)) 
 
-Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.10)
-Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
+# Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03)
+# Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
 
+Q03 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03)
 # plot 
 barplot(sort(transOTU), ylim = c(0, max(transOTU)), 
         xlim = c(0, NROW(transOTU)), col = "Blue", ylab = "Read Depth", xlab = "Sample") 
 abline(h = c(Q10, Q15), col = c("red", "pink"))
-plot.new()
-
 
 rarecurve(t(OTU_table), step = 100, cex = 0.5)
 abline(v = c(Q10, Q15), col = c("red", "pink"))
 
 # you will need to make a BIG decision here on where to draw the rarefaction cutoff
 # samples to the left of the red or pink lines will be thrown out
-rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q10, n = 100, round.out = T)))
+rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q03, n = 100, round.out = T)))
 
 # This only keeps the samples that meet the rarefaction cutoff.
-rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q10 - (Q10 * 0.1), colSums(rared_OTU) >= 1])
+rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q03 - (Q03 * 0.1), colSums(rared_OTU) >= 1])
 
 
 ############### ############### ############### 
@@ -110,7 +113,20 @@ p2 <- ggplot(data = nerged_alpha) +
 #preview the figure
 p2
 
-
+#plot alpha diversity between families
+nerged_alpha <- merge(nerged_rich, shannon, by = 0)
+factor_x <- as.factor(nerged_alpha$Family)
+p3 <- ggplot(data = nerged_alpha) +
+  aes(x = factor_X, y = nerged_alpha$alpha_shannon, 
+    fill = factor_X) +
+  geom_boxplot(outlier.shape = NA, lwd = 1) +
+  labs(title = 'Alpha Diversity',
+       #Change x-axis label and legend title to metadata factor of interest.
+       x = 'Family', y = 'Shannon Diversity Index', fill = 'Family') +
+  theme_classic(base_size = 14, base_line_size = 1) +
+  geom_jitter(width = .2) +
+  theme(legend.position = "none")
+p3
 
 ############### ############### ############### 
 ###############  Beta diversity ###############
