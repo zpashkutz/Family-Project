@@ -25,7 +25,7 @@ Here are some tips to help get through RStudio if it’s your first time using i
 or
 `?function`
 
-2. Run a line by selecting it and pressing CTRL + ENTER
+2. Run a single line by selecting it and pressing CTRL + ENTER
 3. Regions of code that are followed by a # are comments and are not necessary for the code to run. They are to explain what the code is doing e.g.: 
 ```{r}
 df <- mtcars$mpg #assign the mpg column of dataframe mtcars to df
@@ -114,13 +114,13 @@ rarecurve(t(OTU.tableFP), step = 100, cex = 0.5)
 abline(v = c(Q10, Q15), col = c("red", "pink"))
 ```
   
-As you can see, these two lines serve as potential cutoff points for the samples to the left of each line. It is a good idea to visualize the samples with a rarefaction curve like this and make a decision about where to cut off samples. After taking a closer look, a more optimal position to cut off samples would be at a sample size of ~2000. Here you can see that only the 3 samples with insufficient sample depth are not included in the final rarefied data. Here's what rarefying to ~2000 samples would look like.
+As you can see, these two lines serve as potential cutoff points for the samples to the left of each line. It is a good idea to visualize the samples with a rarefaction curve like this and make a decision about where to cut off samples. After taking a closer look, a more optimal position to cut off samples would be at a sample size of ~1350. Here you can see that only the 1 sample with insufficient sample depth is not included in the final rarefied data. Here's what rarefying to ~1350 reads per sample size would look like.
 ```{r}
 transOTU <- rowSums(t(OTU.tableFP)) 
-Q03 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03) #~2000 samples
+Q01 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.0106) #~1350 reads per sample 
 #^ is this quantile notation in the beginning correct
 rarecurve(t(OTU.tableFP), step = 100, cex = 0.5)
-abline(v = c(Q03), col = c("purple"))
+abline(v = c(Q01), col = c("purple"))
 ```
 
 The next step involves cutting off the rarer data. Here we want to make as best a decision we can to keep as much data as possible while rarefying the data.
@@ -129,9 +129,9 @@ The next step involves cutting off the rarer data. Here we want to make as best 
 library(EcolUtils)
 ```
 ```{r, message=FALSE, warning=FALSE, results=FALSE}
-FPrared.OTU <- as.data.frame((rrarefy.perm(t(OTU.tableFP), sample = Q03, n = 100, round.out = T))) #with all samples - rarefies the data
+FPrared.OTU <- as.data.frame((rrarefy.perm(t(OTU.tableFP), sample = Q01, n = 100, round.out = T))) #with all samples - rarefies the data
 
-FPrared.OTU <- as.data.frame(FPrared.OTU[rowSums(FPrared.OTU) >= Q03 - (Q03 * 0.1), colSums(FPrared.OTU) >= 1]) #with some samples cut off - removes low depth samples that do not meet the cutoff
+FPrared.OTU <- as.data.frame(FPrared.OTU[rowSums(FPrared.OTU) >= Q01 - (Q01 * 0.0106), colSums(FPrared.OTU) >= 1]) #with some samples cut off - removes low depth samples that do not meet the cutoff
 ```
 ## Alpha Diversity
 
@@ -230,7 +230,41 @@ ggplot(data = nmds_plus_metadataFP) +
 ```
 
 
+## Random Forest 
 
+*Write an introduction for random forest the explains the basics of how it works and why it is important for us.*
+
+Two packages are needed to perform a random forest. Ensure that the `randomForest` and `rfPermute` packages are installed, then load them for use. 
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+library(randomForest)
+library(rfPermute)
+```
+
+Import the Family Phyla file and format it so that the family column is a factor. *we would need to put the all the files, including the ones for this random forest section in one directory*
+```{r}
+family_Phyla <- read.csv(file="C:/Users/Zach/Documents/Microbiome Family Project/rfPermute_Tutorial/family_Phyla.csv", header =T, sep=",")
+family_Phyla$Family <- factor(family_Phyla$Family)
+```
+Run the random forest specifying the factor that it should be clustered by - in this case Family. 
+```{r}
+family_rfp <- rfPermute(Family~., data = family_Phyla)
+```
+
+Generate a pdf of the plot and visualize the variable importance plot 
+```{r}
+pdf("Variable_importance_generated.pdf", width = 5, height = 5)
+varImpPlot(family_rfp, type=1)
+dev.off()
+print(family_rfp)
+```
+Create and visualize the proximity plot
+```{r}
+family_rfp1 <- rfPermute(Family~., data = family_Phyla, proximity = T)
+pdf("proximity_plot_generated.pdf", width=5, height=5)
+proximityPlot(family_rfp1)
+dev.off()
+print(family_rfp1)
+```
 
 
 

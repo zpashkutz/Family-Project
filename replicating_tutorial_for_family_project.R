@@ -1,4 +1,5 @@
 #libraries necessary
+
 library(vegan)
 library(ggplot2)
 library(EcolUtils)
@@ -36,8 +37,8 @@ transOTU <- rowSums(t(OTU_table))
 
 # Q10 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03)
 # Q15 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.15)
-
-Q03 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03)
+Q01 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.0106) #cuts of at ~1350 sample size
+Q03 <- quantile(transOTU[order(transOTU, decreasing = TRUE)], 0.03) #cuts off at ~2000 sample size
 # plot 
 barplot(sort(transOTU), ylim = c(0, max(transOTU)), 
         xlim = c(0, NROW(transOTU)), col = "Blue", ylab = "Read Depth", xlab = "Sample") 
@@ -48,10 +49,12 @@ abline(v = c(Q10, Q15), col = c("red", "pink"))
 
 # you will need to make a BIG decision here on where to draw the rarefaction cutoff
 # samples to the left of the red or pink lines will be thrown out
-rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q03, n = 100, round.out = T)))
+rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q01, n = 100, round.out = T)))
+# rared_OTU <- as.data.frame((rrarefy.perm(t(OTU_table), sample = Q03, n = 100, round.out = T)))
 
 # This only keeps the samples that meet the rarefaction cutoff.
-rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q03 - (Q03 * 0.1), colSums(rared_OTU) >= 1])
+rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q01 - (Q01 * 0.0106), colSums(rared_OTU) >= 1])
+# rared_OTU <- as.data.frame(rared_OTU[rowSums(rared_OTU) >= Q03 - (Q03 * 0.03), colSums(rared_OTU) >= 1])
 
 
 ############### ############### ############### 
@@ -74,6 +77,8 @@ colnames(shannon) <- c("alpha_shannon")
 
 # Merge with metadata to create a plot.
 nerged_alpha <- merge(nerged_rich, shannon, by = 0)
+rownames(nerged_alpha) <- nerged_alpha$Row.names
+nerged_alpha$Row.names <- NULL
 
 #filter data frame to only have individuals being compared.
 #In this case, fam1 members 
@@ -85,7 +90,7 @@ factor_X <- as.factor(nerged_alpha$Individual)
 
 #plot richness
 p1 <- ggplot(data = nerged_alpha) +
-  aes(x = factor_X, y = nerged_alpha$speciesrich, 
+  aes(x = factor_X, y = speciesrich, 
       fill = factor_X) +
   geom_boxplot(outlier.shape = NA, lwd = 1) +
   labs(title = 'Species Richness',
@@ -100,7 +105,7 @@ p1
 
 # plot alpha diversity
 p2 <- ggplot(data = nerged_alpha) +
-  aes(x = factor_X, y = nerged_alpha$alpha_shannon, 
+  aes(x = factor_X, y = alpha_shannon, 
       fill = factor_X) +
   geom_boxplot(outlier.shape = NA, lwd = 1) +
   labs(title = 'Alpha Diversity',
@@ -115,12 +120,16 @@ p2
 
 #plot alpha diversity between families
 nerged_alpha <- merge(nerged_rich, shannon, by = 0)
-factor_x <- as.factor(nerged_alpha$Family)
+rownames(nerged_alpha) <- nerged_alpha$Row.names
+nerged_alpha$Row.names <- NULL
+
+factor_y <- as.factor(nerged_alpha$Family)
+
 p3 <- ggplot(data = nerged_alpha) +
-  aes(x = factor_X, y = nerged_alpha$alpha_shannon, 
-    fill = factor_X) +
+  aes(x = factor_y, y = alpha_shannon, 
+    fill = factor_y) +
   geom_boxplot(outlier.shape = NA, lwd = 1) +
-  labs(title = 'Alpha Diversity',
+  labs(title = 'Alpha Diversity between Families',
        #Change x-axis label and legend title to metadata factor of interest.
        x = 'Family', y = 'Shannon Diversity Index', fill = 'Family') +
   theme_classic(base_size = 14, base_line_size = 1) +
