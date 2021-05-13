@@ -154,11 +154,13 @@ colnames(FPshannon) <- c('alpha_shannon')
 
 ## Beta Diversity
 
-Beta diversity shows the difference in diversity between two samples or environments. Two common forms of beta diversity are PCoA and NMDS. With each of these visuals, one can get a sense of how similar samples are by how close in proximity points appear on these graphs. There are several different ways to compose beta diversity plots, which vary in both dimensions used and the distance metric applied. With NMDS in particular, two environments are compared by a certain number of dimensions, usually narrowed down as much as possible for a correlation to be made, but also still retaining the accuracy of the initial data. Each beta diversity plot utilizes a distance metric, for example, Euclidean distance for PCoA. 
+Beta diversity shows the difference in diversity between two samples or environments. Two common forms of beta diversity are PCoA and NMDS. With each of these visuals, one can get a sense of how similar samples are by how close in proximity points appear on these graphs. There are several different ways to compose beta diversity plots, which vary in both dimensions used and the distance metric applied. With NMDS in particular, two environments are compared by a 
+certain number of dimensions, usually narrowed down as much as possible for a correlation to be made, but also still retaining the 
+accuracy of the initial data. Each beta diversity plot utilizes a distance 
+metric, for example, Euclidean distance for PCoA. 
 #Ordination Methods
 
-As mentioned above, there are various beta diversity methods, the most popular of which are PCoA and NMDS. 
-In the tutorial below, a distance metric called Bray-Curtis dissimilarity is used. 
+As mentioned above, there are various beta diversity methods, the most popular of which are PCoA and NMDS. In the tutorial below, a distance metric called Bray-Curtis dissimilarity is used. 
 
 The beta diversity tutorial will use the Family Project rarefied OTU table (produce this in rarefaction section first) and the microbiome mapping data.
 
@@ -226,47 +228,142 @@ ggplot(data = nmds_plus_metadataFP) +
   geom_point() +
   labs(fill = "Family") +
   ggtitle("NMDS of Families on Oral Microbiome") + #adds title
-  theme_classic(base_size = 14, base_line_size = .5)
+  theme_classic(base_size = 14, base_line_size = .5) +
+  stat_ellipse(size = 1, type = "t", level = .95)
 ```
 
 
-## Random Forest 
+## Random Forest
 
-*Write an introduction for random forest the explains the basics of how it works and why it is important for us.*
+Random forest is a machine learning technique that in this instance is used to determine the most influential taxa in distinguishing between families. The algorithm classifies samples into groups based on similar features though the use of decision trees (Zhou & Gallins, 2019).
+When it comes to evaluating data based on a decision tree, not all data can be accurately evaluated. That's where random forests come in as a collection of hundreds of decision trees that each data sample is run through. When each data sample is run through the entire random forest, an aggregate decision is made for that sample. This is known as "Bagging". The aggregate decision in this random forest would be which family that sample belongs to. After that is all said and done, we can calculate how accurate our random forest is by checking the out-of-box error. 
+Two packages are needed
+to perform a random forest. Ensure that the `randomForest` and `rfPermute`
+packages are installed, then load them for use.
 
-Two packages are needed to perform a random forest. Ensure that the `randomForest` and `rfPermute` packages are installed, then load them for use. 
-```{r, message=FALSE, warning=FALSE, results=FALSE}
+```{r, message=FALSE,warning=FALSE, results=FALSE}
 library(randomForest)
 library(rfPermute)
 ```
 
 Import the Family Phyla file and format it so that the family column is a factor. *we would need to put the all the files, including the ones for this random forest section in one directory*
+
 ```{r}
-family_Phyla <- read.csv(file="C:/Users/Zach/Documents/Microbiome Family Project/rfPermute_Tutorial/family_Phyla.csv", header =T, sep=",")
+family_Phyla <- read.csv(file="C:/Users/Zach/Documents/Microbiome Family Project/rfPermute_Tutorial/family_Phyla.csv",
+header =T, sep=",")
 family_Phyla$Family <- factor(family_Phyla$Family)
 ```
-Run the random forest specifying the factor that it should be clustered by - in this case Family. 
+Create the random forest specifying the factor that it should be clustered by - in this case Family.
 ```{r}
-family_rfp <- rfPermute(Family~., data = family_Phyla)
+family_rfp <-
+rfPermute(Family~., data = family_Phyla)
 ```
-
-Generate a pdf of the plot and visualize the variable importance plot 
+Next visualize the variable importance plot. This will tell us which Phyla is most important in determining the family that each sample belongs to.
 ```{r}
-pdf("Variable_importance_generated.pdf", width = 5, height = 5)
+#pdf("Variable_importance_generated.pdf", width = 5, height = 5) # remove the "#" in front if this is to be generated as a separate pdf 
 varImpPlot(family_rfp, type=1)
-dev.off()
 print(family_rfp)
 ```
-Create and visualize the proximity plot
+
+Create and visualize the proximity plot. This shows us the similarity of samples with respect to each other and are colored based on their respective families. Samples that are closer are more similar.
 ```{r}
-family_rfp1 <- rfPermute(Family~., data = family_Phyla, proximity = T)
-pdf("proximity_plot_generated.pdf", width=5, height=5)
+family_rfp1 <-
+rfPermute(Family~., data = family_Phyla, proximity = T)
+#pdf("proximity_plot_generated.pdf", width=5, height=5) # remove the "#" in front if this is to be generated as a separate pdf
 proximityPlot(family_rfp1)
-dev.off()
 print(family_rfp1)
 ```
 
+## Creating an Abundance Bar-plot -->
 
+<!-- In this section we are going to go over the creation of bar-plot to demonstrate the distribution of the most prevalent taxa in each section. In order to do this two methods will be demonstrated, a quick an convenient method utilizing phyloseq, and a more detailed process using a host of packages. For some users the plot generated by phyloseq may be all that neccesary, however, the second method using the tidyverse, reshape2 and zoo packages allows for a more granular level of control. The reshape2 package is particularly important as it allows us generate a melted (long format) table of all our data. The zoo package will be used to implement functionality that will allow taxa unidentified at the genus level to be represented by their most specific known classification. *Disclaimer here about how this process will likely not be identical for every set of data but rather it is important to learn the general concepts taught here*  -->
+
+<!-- ### Generating an Abundance plot with Phyloseq  -->
+
+<!-- ### Generating an Abundance plot "Manually"  -->
+
+<!-- Ensure that "tidyverse" , "reshape2", and "zoo" are installed and load them for use.  -->
+<!-- ```{r, message=FALSE, warning=FALSE, results=FALSE} -->
+<!-- library(tidyverse) -->
+<!-- library(reshape2) -->
+<!-- library(zoo) -->
+<!-- ``` -->
+
+<!-- In the event that the `OTU.table.with.taxalevel` data frame is needed elsewhere generate an identical table. For simplicity, the taxonomic classifications in one column will be used. Taxonomy separated by column can be removed for ease of performance in the following steps and be added back in later.  -->
+<!-- ```{r} -->
+<!-- OTWT <- OTU.table.with.taxalevel -->
+<!-- OTWT[,1:7] <- NULL -->
+<!-- colnames(OTWT)[1] <- "TaxaName" #renames the column with consolidated taxonomy -->
+<!-- ``` -->
+
+<!-- In the next step the data will be melted into long format. This is to make each row a distinct taxa that is found within a sample. From this there may be duplicates of the same taxa by row if it is found in more than one sample. Before this is done ensure the column names are set as characters. From this a the generated data frame will list taxa by row and their corresponding sample and amount in said sample by column. Lastly, remove taxa where that do not appear in a sample.  -->
+<!-- ```{r} -->
+<!-- char.cols <- as.character(colnames(OTWT)[2:97]) # ensures col names are characters and makes the measure.vars easy to input -->
+<!-- melt.otu <- melt(OTWT, id.vars = c("TaxaName"), -->
+<!--             measure.vars = char.cols, -->
+<!--             variable.name = "SampleID", value.name = "count") -->
+<!-- melt.otu.filt <- filter(melt.otu, count > 0) -->
+<!-- ```  -->
+
+<!-- Now we must merge the melted OTU table with the metadata. To do this we both data frames must have a shared column by which to merge. To do so, create a second metadata table with a "SampleID" column. Merge the melted OTU table with the metadata. Ensure that none of the column names conflict in newly merged dataframe. In this case "Family" the taxonomic level, and "Family" the sample grouping conflict - as such the sample grouping will be changed to "FamilyNum".  -->
+<!-- ```{r} -->
+<!-- metadata2 <- rownames_to_column(metadata, var = "SampleID") -->
+<!-- meta.tax <- merge(melt.otu.filt, metadata2) -->
+<!-- colnames(meta.tax)[7] <- "FamilyNum" -->
+<!-- ``` -->
+
+<!-- Now the taxa levels which were condensed into one column can be restored to their separate columns for ease of readability, as a new data frame.    -->
+<!-- ```{r} -->
+<!-- meta.tax.na <- ldply(str_split(string = meta.tax$TaxaName, pattern=";"), rbind) -->
+<!-- names(meta.tax.na) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species") -->
+<!-- meta.tax2 <- as.data.frame(lapply(meta.tax.na, gsub, pattern=" ", replacement="")) -->
+<!-- ``` -->
+
+<!-- It may be desirable to represent some taxa at a higher level of classification (e.g. Genera instead of Phyla) however some species may be unidentified at this level. One option that may fix this is by allowing the highest known level of classification to be presented. To do this, the highest known classification level must apply to the level being examined.  -->
+<!-- ```{r} -->
+<!-- meta.tax2 <- data.frame(lapply(meta.tax2, function(x) {gsub("[a-z]__", "", x)})) # removes the "^__" before taxa  -->
+<!-- meta.tax2 <- meta.tax2 %>% mutate_all(na_if,"") # makes blanks go to NAs -->
+<!-- meta.tax2 <- data.frame(t(apply(meta.tax2,1,function(x) na.locf(x)))) #replaces NAs in taxa with last known level of classification -->
+<!-- ``` -->
+
+<!-- Now we can bind this back to `meta.tax` and remove the condensed taxa column.  -->
+<!-- ```{r} -->
+<!-- meta.tax<- cbind(meta.tax2[,1:7],meta.tax) -->
+<!-- meta.tax$TaxaName <- NULL -->
+<!-- ``` -->
+
+<!-- Now the most prevalent taxa must be found, in this case the top 15. Before doing so, ensure that the counts of taxa in each sample is set as numeric. However in order to perform this task we must first unload the plyr and reshape2(dependent on plyr) packages since they conflict with tidyverse.  -->
+<!-- ```{r} -->
+<!-- detach("package:reshape2", unload = TRUE) -->
+<!-- detach("package:plyr", unload = TRUE) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- meta.tax$count <- as.numeric(meta.tax$count) #don't need to run if count col is already numeric -->
+<!-- top.bacteria <- meta.tax %>% -->
+<!--   group_by(., Genus) %>% -->
+<!--   summarise(., total_reads = sum(count)) %>% -->
+<!--   arrange(desc(total_reads)) %>% -->
+<!--   slice(1:15) %>% pull(., Genus) -->
+<!-- ``` -->
+
+<!-- Now create a column that indicates whether each row corresponds to a top taxa or is of low abundance as designated by `top.bacteria` -->
+<!-- ```{r} -->
+<!-- meta.tax$taxa <- ifelse(meta.tax$Genus %in% top.bacteria, as.character(meta.tax$Genus), "low abundant") -->
+<!-- ``` -->
+
+<!-- Lastly, generate a multi-panel bar-plot organized by day and individual to display the top genera (or highest known classification) in ggplot2.  -->
+<!-- ```{r} -->
+<!-- meta.tax %>% -->
+<!--   group_by(., Individual, Day, Genus, FamilyNum) %>% -->
+<!--   summarise(., readsum = sum(count)) %>% -->
+<!--   mutate(., taxa = ifelse(readsum > 200, as.character(Genus), "low abundant")) %>% -->
+<!--   ggplot() + aes(x = Day, weight = readsum, fill = taxa)+ -->
+<!--   geom_bar(position = position_fill()) + -->
+<!--   scale_y_continuous(labels = scales::percent_format()) + -->
+<!--   facet_wrap(. ~ FamilyNum + Individual, scales = "free") + -->
+<!--   theme_dark() -->
+<!-- ``` -->
 
 
 
