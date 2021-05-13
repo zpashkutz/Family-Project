@@ -188,22 +188,7 @@ nmds_plus_metadataFP <- merge(coordinates, metadataFP, by = 0)
 Choose a factor to compare the environments. In this case, we compare them by “Family”:
 ```{r}
 Factor_x <- as.factor(nmds_plus_metadataFP$Family)
-```
 
-Plot without rarefaction:
-```{r, message=FALSE, warning=FALSE}
-library(tidyverse)
-
-ggplot(data = nmds_plus_metadataFP) +
-  aes(x = MDS1, y = MDS2, color = Family)+ #Creates and colors legend
-  geom_point(size = 3) + #modifies points
-  labs(col = "Family") + #Renames legend, modifiable. 
-  theme_bw()
-```
-
-
-(Implement the following if the data is goes through rarefaction)
-```{r}
 filtersamples <- rownames(FPrared.OTU)
 filtermapping <- subset(metadataFP, rownames(metadataFP) %in% filtersamples)
 ```
@@ -218,7 +203,6 @@ adonis(data = filtermapping, formula = FPrared.OTU ~ Family
        /Individual/Day,
        permutations = 999, method = "bray")
 ```
-
 
 
 Plot with rarefaction:
