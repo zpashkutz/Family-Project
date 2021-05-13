@@ -207,6 +207,7 @@ adonis(data = filtermapping, formula = FPrared.OTU ~ Family
 
 Plot with rarefaction:
 ```{r}
+library(ggplot2)
 ggplot(data = nmds_plus_metadataFP) +
   aes(x = MDS1, y = MDS2, color = Family) +
   geom_point() +
